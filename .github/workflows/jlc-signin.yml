@@ -1,8 +1,9 @@
+
 name: JLC Auto Sign
 
 on:
   schedule:
-    - cron: '0 16 * * *'  # 每 6 小时执行一次，UTC 时间
+    - cron: '0 8 * * *'  # 每 6 小时执行一次，UTC 时间
 
   workflow_dispatch:
 
@@ -18,4 +19,5 @@ jobs:
         TOKEN_LIST: ${{ secrets.TOKEN_LIST }}
         SEND_KEY_LIST: ${{ secrets.SEND_KEY_LIST }}
       run: |
-        python main.py
+    run: |
+    run: |t
