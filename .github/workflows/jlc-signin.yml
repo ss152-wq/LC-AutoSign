@@ -1,21 +1,21 @@
-name: JLC Auto Sign
+名称：JLC 自动签名: JLC Auto Sign
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 每 6 小时执行一次，UTC 时间
+    - cron: '0 12 * * *'  # 每 6 小时执行一次，UTC 时间cron: '0 */6 * * *'  # 每 6 小时执行一次，UTC 时间
 
   workflow_dispatch:
 
 jobs:
   sign:
-    runs-on: ubuntu-latest
+    运行于: ubuntu-latest: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+    - 名称: 结账name: Checkout
+      用途：actions/checkout@v3: actions/checkout@v3
 
-    - name: Run Sign Script
+    - 名称: 运行签名脚本name: Run Sign Script
       env:
-        TOKEN_LIST: ${{ secrets.TOKEN_LIST }}
-        SEND_KEY_LIST: ${{ secrets.SEND_KEY_LIST }}
+        TOKEN_LIST: ${{ secrets.TOKEN_LIST }}: ${{ secrets.TOKEN_LIST }}
+        发送键列表: ${{ secrets.SEND_KEY_LIST }}: ${{ secrets.SEND_KEY_LIST }}
       run: |
         python main.py
