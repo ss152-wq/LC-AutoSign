@@ -1,4 +1,3 @@
-
 name: JLC Auto Sign
 
 on:
@@ -19,5 +18,4 @@ jobs:
         TOKEN_LIST: ${{ secrets.TOKEN_LIST }}
         SEND_KEY_LIST: ${{ secrets.SEND_KEY_LIST }}
       run: |
-    run: |
-    run: |t
+        python main.py
