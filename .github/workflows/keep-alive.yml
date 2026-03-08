@@ -1,7 +1,7 @@
 name: Keep Repo Alive
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0点运行（中国时间 8点）
+    - cron: '6 0 * * *'  # 每天 UTC 0点运行（中国时间 8点）
   workflow_dispatch:     # 允许手动触发
 
 jobs:
