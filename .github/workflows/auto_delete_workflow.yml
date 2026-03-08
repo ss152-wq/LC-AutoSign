@@ -40,4 +40,3 @@ jobs:
         if: success()
         run: |
           echo "✅ Cleanup completed"
-          echo "Retain days: ${{ github.event.inputs.retain_days || '3' }}"
