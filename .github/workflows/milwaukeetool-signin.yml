@@ -2,20 +2,31 @@ name: milwaukeetool Auto Sign
 
 on:
   schedule:
-    - cron: '0 16,22,4,10 * * *'  # 每 6 小时执行一次，UTC 时间
-
-  workflow_dispatch:
+    # 每 6 小时执行一次（UTC 时间 4/10/16/22 点，对应北京时间 12/18/2/8 点）
+    - cron: '0 4,10,16,22 * * *'  
+  workflow_dispatch:  # 手动触发开关
 
 jobs:
   sign:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: 拉取仓库代码
+        uses: actions/checkout@v3
 
-    - name: Run Sign Script
-      env:
-        MILWAUKEETOOL_CLIENT_ID: ${{ secrets.MILWAUKEETOOL_CLIENT_ID }}
-        MILWAUKEETOOL_TOKEN_LIST: ${{ secrets.MILWAUKEETOOL_TOKEN_LIST }}
-      run: python .github/workflows/milwaukeetool-sign.py  # 加上文件所在的子目录路径
-        python milwaukeetool-sign.py
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'  # 使用最新版 Python 3
+
+      - name: 安装依赖（requests）
+        run: pip install requests
+
+      - name: 运行签到脚本
+        env:
+          MILWAUKEETOOL_CLIENT_ID: ${{ secrets.MILWAUKEETOOL_CLIENT_ID }}
+          MILWAUKEETOOL_TOKEN_LIST: ${{ secrets.MILWAUKEETOOL_TOKEN_LIST }}
+        # 仅保留正确的脚本路径（根据你的文件位置选择其一）
+        # 如果你把脚本放在 .github/workflows/ 目录下，用这行：
+        run: python .github/workflows/milwaukeetool-sign.py
+        # 如果你把脚本移到仓库根目录，替换为这行：
+        # run: python milwaukeetool-sign.py
