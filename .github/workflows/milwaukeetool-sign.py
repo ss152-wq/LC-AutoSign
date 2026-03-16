@@ -16,8 +16,7 @@ GLOBAL_STYPE = 1
 
 # 【通知配置】Server酱 Turbo版 SendKey
 # 替换为你的Server酱 SendKey（从https://sct.ftqq.com/获取）
-SERVERCHAN_SENDKEY = "你的Server酱SendKey"
-
+SERVERCHAN_SENDKEY =SCT307256TD8siPZoRuqH8YTE2RftCyZw4
 # 【调试开关】True: 打印完整返回JSON; False: 仅失败时打印
 SHOW_RAW_RESPONSE = True
 
