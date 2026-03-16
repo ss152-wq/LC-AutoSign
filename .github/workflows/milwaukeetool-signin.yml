@@ -17,5 +17,5 @@ jobs:
       env:
         MILWAUKEETOOL_CLIENT_ID: ${{ secrets.MILWAUKEETOOL_CLIENT_ID }}
         MILWAUKEETOOL_TOKEN_LIST: ${{ secrets.MILWAUKEETOOL_TOKEN_LIST }}
-      run: |
+      run: python .github/workflows/milwaukeetool-sign.py  # 加上文件所在的子目录路径
         python milwaukeetool-sign.py
