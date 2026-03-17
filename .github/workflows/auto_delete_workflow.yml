@@ -11,12 +11,12 @@ jobs:
       actions: write  # 必须的删除权限
     steps:
       - name: Force delete all old workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+        # 替换为支持 Node.js 24 的新版 Action
+        uses: dev-drprasad/delete-older-workflow-runs@v0.3.4
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 0                # 0 = 无视天数，清理所有记录
-          keep_minimum_runs: 3          # 0 = 不保留任何记录（彻底清空）
-          dry_run: false                # 先设为true测试，确认后改false
-          delete_run_by_conclusion_pattern: ".*"  # 匹配所有运行状态
-          delete_workflow_pattern: ".*"           # 匹配所有工作流名称
+          keep_minimum_runs: 3    # 0 = 不保留任何记录（彻底清空）
+          retain_days: 0          # 0 = 清理所有天数的记录
+          # 匹配所有工作流（彻底清理全部记录）
+          workflow_pattern: ".*"
