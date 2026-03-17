@@ -1,42 +1,22 @@
-name: Cleanup Old Workflow Runs
+name: Clean All Workflow Runs
 on:
   schedule:
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
-    inputs:
-      retain_days:
-        description: '保留多少天内的运行记录'
-        required: false
-        default: '3'
-        type: choice
-        options:
-          - '1'
-          - '3'
-          - '7'
-          - '14'
+    # 每3天的UTC时间0点（北京时间8点）执行
+    - cron: '0 0 */3 * *'  
+  workflow_dispatch:     # 手动触发开关
 
 jobs:
-  cleanup-runs:
-    name: Cleanup Old Workflow Runs
+  clean-all-runs:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
-      contents: read
+      actions: write  # 必须授予删除记录的权限
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Delete old workflow runs
+      - name: Delete all old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: ${{ github.event.inputs.retain_days || '3' }}
-          keep_minimum_runs: 5
-          keep_maximum_runs: 100
-          delete_workflow_pattern: 'all'
-
-      - name: Notify cleanup completion
-        if: success()
-        run: |
-          echo "✅ Cleanup completed"
+          retain_days: 3          # 只保留最近3天的记录，3天前的全部删除
+          keep_minimum_runs: 5    # 至少保留5条最新记录（防止误删所有）
+          dry_run: false          # 测试时改为true，确认无误后改回false
+          # 删去 delete_workflow_pattern 表示清理所有工作流的记录
