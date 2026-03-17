@@ -15,7 +15,7 @@ GLOBAL_STYPE = 1
 
 # 【通知配置】企业微信 Webhook 地址
 # 请替换为你自己的 key (替换掉示例中的 key)
-WEBHOOK_URL = "SCT307256TD8siPZoRuqH8YTE2RftCyZw4key=6f5a8381193e2b5379352bdcbeb49ddd"
+WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=906ffb7c-213c-453e-b570-99a01b10bace"
 
 # 【调试开关】True: 打印完整返回JSON; False: 仅失败时打印66cc63a1-0679-9888-3146-0b13a88d9901
 SHOW_RAW_RESPONSE = True
