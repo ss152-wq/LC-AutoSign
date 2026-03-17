@@ -9,14 +9,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write  # 必须的删除权限
+      contents: read  # gh 命令行需要的基础权限
     steps:
-      - name: Force delete all old workflow runs
-        # 替换为支持 Node.js 24 的新版 Action
-        uses: dev-drprasad/delete-older-workflow-runs@v0.3.4
-        with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          keep_minimum_runs: 3    # 0 = 不保留任何记录（彻底清空）
-          retain_days: 0          # 0 = 清理所有天数的记录
-          # 匹配所有工作流（彻底清理全部记录）
-          workflow_pattern: ".*"
+      - name: Install GitHub CLI (确保最新版)
+        run: |
+          sudo apt update && sudo apt install gh -y
+          gh --version
+
+      - name: Delete all workflow runs (彻底清空)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # 获取仓库所有工作流 ID
+          WORKFLOW_IDS=$(gh api repos/${{ github.repository }}/actions/workflows --jq '.workflows[].id')
+          
+          # 遍历每个工作流，删除其所有运行记录
+          for id in $WORKFLOW_IDS; do
+            echo "开始清理工作流 ID: $id 的所有记录..."
+            # 获取该工作流的所有运行记录 ID（按创建时间排序，最新的最后）
+            RUN_IDS=$(gh api repos/${{ github.repository }}/actions/workflows/$id/runs --jq '.workflow_runs[].id')
+            
+            # 删除每条记录
+            for run_id in $RUN_IDS; do
+              echo "删除运行记录 ID: $run_id..."
+              gh api --method DELETE repos/${{ github.repository }}/actions/runs/$run_id
+              sleep 1  # 避免 API 频率限制
+            done
+          done
+          
+          echo "✅ 所有工作流记录已彻底清理完成！"
