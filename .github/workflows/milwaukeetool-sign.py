@@ -17,7 +17,7 @@ GLOBAL_STYPE = 1
 # 请替换为你自己的 key (替换掉示例中的 key)
 WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=906ffb7c-213c-453e-b570-99a01b10bace"
 
-# 【调试开关】True: 打印完整返回JSON; False: 仅失败时打印66cc63a1-0679-9888-3146-0b13a88d9901
+# 【调试开关】True: 打印完整返回JSON; False: 仅失败时打印
 SHOW_RAW_RESPONSE = True
 
 SECRET = "36affdc58f50e1035649abc808c22b48"
@@ -211,7 +211,7 @@ def send_wechat_notification(failed_accounts, total_count, success_count):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 构建失败详情列表
-    fail_details = "\n".join([f"• {name}: {reason}" for name, reason in failed_accounts])
+    fail_details = "\n".join([f"• {name}: {reason}" for name, reason in failed_accounts]) if failed_accounts else "无"
 
     content = (
         f"🤖 **签到任务执行报告**\n"
@@ -234,26 +234,36 @@ def send_wechat_notification(failed_accounts, total_count, success_count):
     try:
         resp = requests.post(WEBHOOK_URL, json=payload, timeout=5)
         if resp.status_code == 200 and resp.json().get("errcode") == 0:
-            print("\n📢 已发送失败通知到企业微信。")
+            print("\n📢 已发送通知到企业微信。")
         else:
             print(f"\n⚠️  通知发送失败: {resp.text}")
     except Exception as e:
         print(f"\n⚠️  通知发送异常: {str(e)}")
 
 
-def process_account(account_info, index, total, failed_list):
+def process_account(account_name, index, total, failed_list):
+    """
+    处理单个账号的签到
+    :param account_name: 账号名称（用于标识）
+    :param index: 当前账号索引
+    :param total: 总账号数
+    :param failed_list: 失败列表（用于收集失败信息）
+    :return: 是否成功
+    """
+    # 从环境变量获取配置
     token = os.getenv('MILWAUKEETOOL_TOKEN_LIST', '')
     client_id = os.getenv('MILWAUKEETOOL_CLIENT_ID', '')
     token_show = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else "***"
 
+    print(f"\n📌 处理账号 [{index}/{total}]: {account_name}")
     print(f"      ├─ 方法: {GLOBAL_METHOD}")
     print(f"      ├─ ID: {client_id}")
     print(f"      └─ Token: {token_show}")
 
     if not token or not client_id:
-        msg = "缺少 token 或 client_id"
+        msg = "缺少 token 或 client_id 环境变量"
         print(f"      ❌ 结果: {msg}")
-        failed_list.append((name, msg))
+        failed_list.append((account_name, msg))
         return False
 
     now = datetime.now()
@@ -302,12 +312,12 @@ def process_account(account_info, index, total, failed_list):
             if SHOW_RAW_RESPONSE:
                 print(f"      └─ 返回: {json.dumps(resp_json, ensure_ascii=False)}")
 
-            #--------
+            # 检查签到天数
             print("\n📢 開始檢查簽到天數")
             delay = random.uniform(1.0, 2.5)
             print(f"      ⏳ 等待 {delay:.1f}s...")
             time.sleep(delay)
-            payload = {
+            payload_check = {
                 "token": token,
                 "client_id": client_id,
                 "appkey": APPKEY,
@@ -316,11 +326,11 @@ def process_account(account_info, index, total, failed_list):
                 "platform": PLATFORM,
                 "method": "get.signon.list"
             }
-            sign_val = generate_sign(payload)
-            payload["sign"] = sign_val
-            response = requests.post(URL, headers=HEADERS, json=payload, timeout=40)
-            resp_json = response.json()
-            print(f"{format_sign_status(resp_json)}")
+            sign_val_check = generate_sign(payload_check)
+            payload_check["sign"] = sign_val_check
+            response_check = requests.post(URL, headers=HEADERS, json=payload_check, timeout=40)
+            resp_json_check = response_check.json()
+            print(f"{format_sign_status(resp_json_check)}")
             
             return True
         else:
@@ -330,13 +340,13 @@ def process_account(account_info, index, total, failed_list):
 
             # 记录失败信息用于通知
             short_msg = msg if len(msg) < 50 else msg[:47] + "..."
-            failed_list.append((name, f"{short_msg} (Code:{code})"))
+            failed_list.append((account_name, f"{short_msg} (Code:{code})"))
             return False
 
     except Exception as e:
         err_msg = str(e)
         print(f"      ❌ 结果: 网络/系统错误 - {err_msg}")
-        failed_list.append((name, f"网络错误: {err_msg}"))
+        failed_list.append((account_name, f"网络错误: {err_msg}"))
         return False
 
 
@@ -348,12 +358,12 @@ def main():
 
     success_count = 0
     failed_list = []  # 存储 (名字, 原因)
+    total_count = 1   # 账号总数（单账号模式）
+    account_name = "默认账号"  # 账号名称
 
-    process_account(0, 1, 1, failed_list)
-
-    # for i, acc in enumerate(accounts, 1):
-    #     if process_account(acc, i, len(accounts), failed_list):
-    #         success_count += 1
+    # 执行签到
+    if process_account(account_name, 1, total_count, failed_list):
+        success_count += 1
 
     # 汇总
     print("\n" + "=" * 60)
@@ -362,11 +372,14 @@ def main():
     print(f"   ❌ 失败: {len(failed_list)}")
     print("=" * 60)
 
-    # 如果有失败，发送通知
+    # 发送企业微信通知（无论成功失败都发送）
+    send_wechat_notification(failed_list, total_count, success_count)
+
+    # 原有提示逻辑
     if len(failed_list) > 0:
-        print("\n失敗。")
+        print("\n❌ 存在失败账号，已发送通知。")
     else:
-        print("\n🎉 全部成功，无需发送通知。")
+        print("\n🎉 全部成功！")
 
 
 if __name__ == "__main__":
