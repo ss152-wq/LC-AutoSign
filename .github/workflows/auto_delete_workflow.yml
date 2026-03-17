@@ -18,13 +18,15 @@ jobs:
           REPO: ${{ github.repository }}
           CLEAN_WORKFLOW_NAME: "Clean All Workflow Runs Completely"
         run: |
-          # 设置 gh 命令行的认证和输出格式
+          # 初始化 gh 命令行（修复认证和格式问题）
           gh auth setup-git
           gh config set prompt disabled
+          gh config set api_preview workflows=true
           
           # ========== 第一步：清理其他工作流的所有记录 ==========
           echo "📌 开始清理其他工作流的所有记录..."
-          OTHER_WORKFLOW_IDS=$(gh api repos/$REPO/actions/workflows --jq --arg name "$CLEAN_WORKFLOW_NAME" '.workflows[] | select(.name != $name) | .id')
+          # 修复：用 jq 传参语法，避免空格导致的参数错误
+          OTHER_WORKFLOW_IDS=$(gh api "repos/$REPO/actions/workflows" --jq --arg name "$CLEAN_WORKFLOW_NAME" '.workflows[] | select(.name != $name) | .id')
           
           if [ -n "$OTHER_WORKFLOW_IDS" ]; then
             for id in $OTHER_WORKFLOW_IDS; do
@@ -32,9 +34,13 @@ jobs:
               echo "清理工作流 ID: $id 的所有记录..."
               page=1
               while true; do
+                # 修复：API URL 用引号包裹，避免参数拆分
                 RUN_IDS=$(gh api "repos/$REPO/actions/workflows/$id/runs?page=$page&per_page=100" --jq '.workflow_runs[].id')
                 if [ -z "$RUN_IDS" ]; then break; fi
+                
                 for run_id in $RUN_IDS; do
+                  echo "删除运行记录 ID: $run_id..."
+                  # 修复：DELETE 请求的 URL 用引号包裹
                   for attempt in {1..3}; do
                     if gh api --method DELETE "repos/$REPO/actions/runs/$run_id" > /dev/null 2>&1; then
                       echo "✅ 记录 $run_id 删除成功"
@@ -57,12 +63,12 @@ jobs:
           
           # ========== 第二步：清理清理工作流的旧记录（保留最新1条） ==========
           echo -e "\n📌 开始清理清理工作流的旧记录（保留最新1条）..."
-          CLEAN_WORKFLOW_ID=$(gh api repos/$REPO/actions/workflows --jq --arg name "$CLEAN_WORKFLOW_NAME" '.workflows[] | select(.name == $name) | .id')
+          # 修复：用 jq 传参获取清理工作流 ID
+          CLEAN_WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq --arg name "$CLEAN_WORKFLOW_NAME" '.workflows[] | select(.name == $name) | .id')
           
           if [ -n "$CLEAN_WORKFLOW_ID" ]; then
-            # 获取清理工作流的所有运行记录 ID（按创建时间排序，最新的在最后）
-            RUN_IDS=$(gh api "repos/$REPO/actions/workflows/$CLEAN_WORKFLOW_ID/runs?per_page=100" --jq '.workflow_runs[].id' | tac)
-            # 跳过第一条（最新的），删除剩下的
+            # 修复：按创建时间排序，最新的在最后（用 tac 反转）
+            RUN_IDS=$(gh api "repos/$REPO/actions/workflows/$CLEAN_WORKFLOW_ID/runs?per_page=100" --jq '.workflow_runs | sort_by(.created_at) | .[].id' | tac)
             SKIP_FIRST=1
             for run_id in $RUN_IDS; do
               if [ $SKIP_FIRST -eq 1 ]; then
