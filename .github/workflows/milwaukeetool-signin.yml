@@ -2,8 +2,7 @@ name: milwaukeetool Auto Sign
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 北京时间每天早上9点执行（UTC时间1点）
-
+    - cron: '10 23 * * *'  # 北京时间每天早上7点10分执行（UTC时间23:10）
   workflow_dispatch:
 
 jobs:
@@ -18,4 +17,3 @@ jobs:
         MILWAUKEETOOL_CLIENT_ID: ${{ secrets.MILWAUKEETOOL_CLIENT_ID }}
         MILWAUKEETOOL_TOKEN_LIST: ${{ secrets.MILWAUKEETOOL_TOKEN_LIST }}
       run: python .github/workflows/milwaukeetool-sign.py
-        python milwaukeetool-sign.py
