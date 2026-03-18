@@ -1,7 +1,7 @@
 name: Keep Repo Alive
 on:
   schedule:
-    - cron: '0 4 */7 * *'  # 每7天 UTC 1点 → 北京时间 9点
+    - cron: '0 3 */7 * *'  # 每7天 UTC 1点 → 北京时间 9点
   workflow_dispatch:
 
 jobs:
