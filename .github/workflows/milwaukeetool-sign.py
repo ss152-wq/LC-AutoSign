@@ -119,10 +119,9 @@ def format_sign_status(json_data):
         return f"❌ 格式化錯誤：{str(e)}"
 
 def get_points(token, client_id):
-    """【纯新查分方法】完全用你指定的逻辑，无任何旧查分代码"""
+    """【纯新查分方法】完全用你指定的逻辑"""
     now = datetime.now()
     timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    # 新查分请求参数
     payload = {
         "token": token,
         "client_id": client_id,
@@ -132,15 +131,12 @@ def get_points(token, client_id):
         "platform": PLATFORM,
         "method": QUERY_METHOD
     }
-    # 用你的签名逻辑生成查分签名（兼容原有规则）
     payload["sign"] = generate_sign(payload)
     try:
         response = requests.post(QUERY_URL, json=payload, headers=HEADERS, timeout=10)
         resp_json = response.json()
-        # 新查分字段提取：严格按你给的新代码逻辑
         points = resp_json.get("data", {}).get("get_user_money", {}).get("points")
         mobile = resp_json.get("data", {}).get("mobile", "未知")
-        # 字段判空，返回友好提示
         if points is not None:
             return True, points, mobile
         else:
@@ -149,26 +145,29 @@ def get_points(token, client_id):
     except Exception as e:
         return False, 0, f"查分异常：{str(e)}"
 
-def send_wechat_notification(failed_accounts, total_count, success_count, points=0):
-    """企业微信推送（原逻辑+新查分结果，无旧查分信息）"""
+def send_wechat_notification(failed_accounts, total_count, success_count, points_info):
+    """企业微信推送（多账号适配，显示每个账号积分）"""
     if not WEBHOOK_URL or "key=" not in WEBHOOK_URL:
         print("\n⚠️  未配置有效的 Webhook URL，跳过通知发送。")
         return
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 多账号失败详情
     fail_details = "\n".join([f"• {name}: {reason}" for name, reason in failed_accounts]) if failed_accounts else "无"
+    # 多账号积分汇总
+    points_details = "\n".join([f"• {name}: {point} 分" for name, point in points_info.items()]) if points_info else "无"
 
-    # 推送内容：仅含新查分的积分结果
     content = (
-        f"🤖 **美沃奇自动签到&新查分报告**\n"
+        f"🤖 **美沃奇多账号自动签到&新查分报告**\n"
         f"📅 时间: {now_str}\n"
         f"--------------------------\n"
-        f"✅ 成功: {success_count} 个\n"
-        f"❌ 失败: {len(failed_accounts)} 个\n"
-        f"📦 总数: {total_count} 个\n"
-        f"💰 当前积分: {points}\n"
+        f"✅ 签到成功: {success_count} 个\n"
+        f"❌ 执行失败: {len(failed_accounts)} 个\n"
+        f"📦 账号总数: {total_count} 个\n"
         f"--------------------------\n"
-        f"⚠️ **失败详情:**\n{fail_details}"
+        f"💰 各账号积分:\n{points_details}\n"
+        f"--------------------------\n"
+        f"⚠️ 失败详情:\n{fail_details}"
     )
 
     payload = {
@@ -181,35 +180,32 @@ def send_wechat_notification(failed_accounts, total_count, success_count, points
     try:
         resp = requests.post(WEBHOOK_URL, json=payload, timeout=5)
         if resp.status_code == 200 and resp.json().get("errcode") == 0:
-            print("\n📢 已发送通知到企业微信。")
+            print("\n📢 多账号结果已发送到企业微信。")
         else:
             print(f"\n⚠️  通知发送失败: {resp.text}")
     except Exception as e:
         print(f"\n⚠️  通知发送异常: {str(e)}")
 
-def process_account(account_name, index, total, failed_list):
-    """处理单个账号：签到→查签到天数→新查分（无旧查分）"""
-    # 保留你的原环境变量名，未修改
-    token = os.environ.get("MILWAUKEETOOL_TOKEN_LIST", "")
-    client_id = os.environ.get("MILWAUKEETOOL_CLIENT_ID", "")
+def process_account(account_name, token, client_id, index, total, failed_list, points_info):
+    """处理单个账号：签到→查签到天数→新查分（多账号适配）"""
     token_show = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else "***"
-    points = 0  # 新查分积分初始化
+    points = 0
 
-    print(f"\n📌 处理账号 [{index}/{total}]: {account_name}")
+    print(f"\n" + "-"*60)
+    print(f"📌 处理账号 [{index}/{total}]: {account_name}")
     print(f"      ├─ 方法: {GLOBAL_METHOD}")
     print(f"      ├─ ID: {client_id}")
     print(f"      └─ Token: {token_show}")
+    print("-"*60)
 
     if not token or not client_id:
-        msg = "缺少 token 或 client_id 环境变量"
+        msg = "缺少 token 或 client_id"
         print(f"      ❌ 结果: {msg}")
         failed_list.append((account_name, msg))
-        return False, points
+        return False
 
     now = datetime.now()
     timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-    # 签到请求参数（你的原逻辑，未修改）
     payload = {
         "token": token,
         "client_id": client_id,
@@ -234,10 +230,9 @@ def process_account(account_name, index, total, failed_list):
         print(f"      ⏳ 等待 {delay:.1f}s...")
         time.sleep(delay)
 
-        # 执行签到（你的原逻辑，未修改）
+        # 执行签到
         response = requests.post(SIGNON_URL, headers=HEADERS, json=payload, timeout=10)
         resp_json = response.json()
-
         code = resp_json.get("code")
         msg = resp_json.get("msg", "") or resp_json.get("message", "") or str(resp_json)
 
@@ -254,7 +249,7 @@ def process_account(account_name, index, total, failed_list):
             if SHOW_RAW_RESPONSE:
                 print(f"      └─ 签到返回: {json.dumps(resp_json, ensure_ascii=False)}")
 
-            # 1. 查签到天数（你的原逻辑，未修改）
+            # 1. 查签到天数
             print("\n📢 開始檢查簽到天數")
             delay = random.uniform(1.0, 2.5)
             print(f"      ⏳ 等待 {delay:.1f}s...")
@@ -274,63 +269,92 @@ def process_account(account_name, index, total, failed_list):
             resp_json_check = response_check.json()
             print(f"{format_sign_status(resp_json_check)}")
 
-            # 2. 执行【新查分】（无旧查分，纯新逻辑）
+            # 2. 新查分
             print("\n💰 開始執行新邏輯查詢積分")
-            time.sleep(1.0)  # 延时防风控
+            time.sleep(1.0)
             query_ok, points, mobile = get_points(token, client_id)
             if query_ok:
                 print(f"✅ 新查分成功 | 绑定手机：{mobile} | 當前積分：{points}")
+                points_info[account_name] = points
             else:
                 print(f"❌ 新查分失敗：{mobile}")
                 failed_list.append((account_name, f"新查分失敗：{mobile}"))
+                points_info[account_name] = f"查分失败：{mobile}"
 
-            return True, points
+            return True
         else:
             print(f"      ⚠️ 签到结果: 失败 (Code:{code}) | {msg}")
             print(f"      └─ 完整返回:\n{json.dumps(resp_json, ensure_ascii=False, indent=4)}")
             short_msg = msg if len(msg) < 50 else msg[:47] + "..."
-            failed_list.append((account_name, f"签到失败：{short_msg} (Code:{code})"))
-            return False, points
+            failed_list.append((name, f"签到失败：{short_msg} (Code:{code})"))
+            points_info[account_name] = "签到失败，未查分"
+            return False
 
     except Exception as e:
         err_msg = str(e)
         print(f"      ❌ 结果: 网络/系统错误 - {err_msg}")
         failed_list.append((account_name, f"系统错误: {err_msg}"))
-        return False, points
+        points_info[account_name] = "系统错误，未查分"
+        return False
 
 def main():
-    """主函数（原逻辑+新查分，无旧查分代码）"""
+    """主函数：多账号核心逻辑，**复用原环境变量名**，逗号分隔多账号"""
     print("=" * 60)
-    print(f"🚀 美沃奇自动签到 + 新逻辑查分")
+    print(f"🚀 美沃奇多账号自动签到 + 新逻辑查分")
     print(f"📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
+    # 【完全复用你原来的环境变量名，无任何新增】
+    token_str = os.environ.get("MILWAUKEETOOL_TOKEN_LIST", "")
+    client_id_str = os.environ.get("MILWAUKEEETOOL_CLIENT_ID", "")
+    
+    # 按英文逗号分割为多账号列表，自动过滤空值
+    token_list = [t.strip() for t in token_str.split(",") if t.strip()]
+    client_id_list = [c.strip() for c in client_id_str.split(",") if c.strip()]
+
+    # 校验账号数量是否一致
+    if len(token_list) == 0 or len(client_id_list) == 0:
+        print("❌ 环境变量为空，请检查 MILWAUKEETOOL_TOKEN_LIST / MILWAUKEEETOOL_CLIENT_ID！")
+        return
+    if len(token_list) != len(client_id_list):
+        print(f"❌ token数量({len(token_list)})与client_id数量({len(client_id_list)})不一致！")
+        return
+
+    total_count = len(token_list)
     success_count = 0
     failed_list = []
-    total_count = 1   # 单账号模式
-    account_name = "默认账号"
-    current_points = 0  # 新查分积分
+    points_info = {}  # 存储每个账号的积分
 
-    # 执行签到+签到天数+新查分
-    sign_ok, current_points = process_account(account_name, 1, total_count, failed_list)
-    if sign_ok:
-        success_count += 1
+    print(f"📂 成功加载 {total_count} 个账号，开始依次执行...\n")
+    # 循环处理每个账号，一一对应
+    for i in range(total_count):
+        account_name = f"账号{i+1}"  # 账号命名：账号1、账号2、账号3...
+        token = token_list[i]
+        client_id = client_id_list[i]
+        # 执行单个账号逻辑
+        if process_account(account_name, token, client_id, i+1, total_count, failed_list, points_info):
+            success_count += 1
+        # 账号间加延时，防止风控（3-5秒）
+        if i < total_count - 1:
+            wait_time = random.uniform(3.0, 5.0)
+            print(f"\n⏳ 等待 {wait_time:.1f}s 后处理下一个账号...\n")
+            time.sleep(wait_time)
 
-    # 汇总结果（仅显示新查分积分）
+    # 汇总结果
     print("\n" + "=" * 60)
-    print(f"🏁 任务结束")
-    print(f"   ✅ 签到成功: {success_count}")
-    print(f"   ❌ 异常数: {len(failed_list)}")
-    print(f"   💰 新查分-当前积分: {current_points}")
+    print(f"🏁 所有账号处理完成")
+    print(f"   ✅ 签到成功: {success_count} / {total_count}")
+    print(f"   ❌ 执行异常: {len(failed_list)} 个")
+    print(f"   💰 各账号积分: {points_info}")
     print("=" * 60)
 
-    # 推送新查分结果
-    send_wechat_notification(failed_list, total_count, success_count, current_points)
+    # 发送多账号推送
+    send_wechat_notification(failed_list, total_count, success_count, points_info)
 
     if len(failed_list) > 0:
-        print("\n❌ 存在异常，已发送企业微信通知。")
+        print("\n❌ 部分账号执行异常，已发送企业微信通知。")
     else:
-        print("\n🎉 签到+新查分全部成功！")
+        print("\n🎉 所有账号签到+新查分全部成功！")
 
 if __name__ == "__main__":
     main()
