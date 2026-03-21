@@ -9,8 +9,8 @@ from pathlib import Path
 
 # ================= 全局配置区 =================
 # 【核心开关】统一修改所有账号执行的方法
-GLOBAL_METHOD = "user.sign"              # 签到方法
-# GLOBAL_METHOD = "get.user.item"        # 查询积分
+GLOBAL_METHOD = "add.signon.item"  # 改回你原来的签到方法
+# GLOBAL_METHOD = "get.signon.list" # 查询签到天数
 
 GLOBAL_STYPE = 1
 
@@ -20,14 +20,15 @@ WEBHOOK_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=906ffb7c-213
 # 【调试开关】
 SHOW_RAW_RESPONSE = True
 
-SECRET = "e91270c65422411a9a01b44742865e39"
+SECRET = "36affdc58f50e1035649abc808c22b48"  # 改回你原来的密钥
 APPKEY = "76472358"
 PLATFORM = "MP-WEIXIN"
 FORMAT = "json"
-URL = "https://service.milwaukeetool.cn/api/v1/user"
+URL = "https://service.milwaukeetool.cn/api/v1/signon"  # 改回你原来的签到接口
 
 HEADERS = {
     "Host": "service.milwaukeetool.cn",
+    "Connection": "keep-alive",
     "Content-Type": "application/json",
     "Accept": "*/*",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541739) XWEB/18955",
@@ -44,7 +45,7 @@ HEADERS = {
 
 def generate_sign(params_dict):
     sorted_keys = sorted(params_dict.keys())
-    s = ""
+    s = SECRET
     for key in sorted_keys:
         val = params_dict[key]
         if isinstance(val, bool):
@@ -54,32 +55,70 @@ def generate_sign(params_dict):
     return hashlib.md5(s.encode('utf-8')).hexdigest()
 
 def format_sign_status(json_data):
+    """
+    將簽到狀態 JSON 資料格式化為易讀的文字
+    """
     try:
         if isinstance(json_data, str):
             data = json.loads(json_data)
         else:
             data = json_data
         
-        if data.get('status') != 200 and data.get('code') != 200:
-            return f"❌ 錯誤：API 回應異常"
+        if data.get('status') != 200:
+            return f"❌ 錯誤：API 回應異常 (狀態碼: {data.get('status')})"
         
         sign_data = data.get('data', {})
+        sign_status = sign_data.get('SigninStatus', 0)
+        sign_count = sign_data.get('signcount', 0)
+        items = sign_data.get('items', [])
+        send_num = sign_data.get('send_num', 0)
+        used_num = sign_data.get('used_num', 0)
+        available_num = sign_data.get('available_send_num', 0)
+        
         output = []
         output.append("=" * 50)
-        output.append(" Milwaukee 签到结果 ".center(48, "="))
+        output.append(" 📋 簽到系統狀態報告 ".center(48, "="))
         output.append("=" * 50)
-        output.append(f"✅ 当前积分：{sign_data.get('user_score', '未知')}")
-        output.append(f"📅 连续签到：{sign_data.get('sign_days', sign_data.get('signcount', '未知'))} 天")
+        output.append("")
+        
+        status_text = "✅ 已簽到" if sign_status == 1 else "❌ 未簽到"
+        output.append(f"【基本資訊】")
+        output.append(f"  🔐 簽到狀態：{status_text}")
+        output.append(f"  📊 連續簽到：{sign_count} 天")
+        output.append(f"  📅 簽到總數：{len(items)} 天")
+        output.append("")
+        
+        if items:
+            output.append("【簽到記錄】")
+            sorted_items = sorted(items)
+            for date in sorted_items:
+                output.append(f"  📆 {date} ✅")
+        else:
+            output.append("【簽到記錄】")
+            output.append("  📭 暫無簽到記錄")
+        
+        output.append("")
+        output.append("【使用統計】")
+        output.append(f"  📤 今日發送：{send_num}")
+        output.append(f"  📥 今日使用：{used_num}")
+        output.append(f"  💾 可用額度：{available_num}")
+        
+        output.append("")
         output.append("=" * 50)
+        output.append(f" 報告時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        output.append("=" * 50)
+        
         return "\n".join(output)
         
+    except json.JSONDecodeError as e:
+        return f"❌ JSON 解析錯誤：{str(e)}"
     except Exception as e:
-        return f"❌ 解析错误：{str(e)}"
+        return f"❌ 格式化錯誤：{str(e)}"
 
 def send_wechat_notification(failed_accounts, total_count, success_count):
     """发送企业微信通知"""
     if not WEBHOOK_URL or "key=" not in WEBHOOK_URL:
-        print("\n⚠️  未配置 Webhook，跳过推送")
+        print("\n⚠️  未配置有效的 Webhook URL，跳过通知发送。")
         return
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -98,32 +137,38 @@ def send_wechat_notification(failed_accounts, total_count, success_count):
 
     payload = {
         "msgtype": "text",
-        "text": { "content": content }
+        "text": {
+            "content": content
+        }
     }
 
     try:
         resp = requests.post(WEBHOOK_URL, json=payload, timeout=5)
         if resp.status_code == 200 and resp.json().get("errcode") == 0:
-            print("\n📢 企业微信推送成功")
-    except:
-        print("\n⚠️  推送失败")
+            print("\n📢 已发送通知到企业微信。")
+        else:
+            print(f"\n⚠️  通知发送失败: {resp.text}")
+    except Exception as e:
+        print(f"\n⚠️  通知发送异常: {str(e)}")
 
 def process_account(account_name, index, total, failed_list):
-    # 完全使用你原来的环境变量名
     token = os.environ.get("MILWAUKEETOOL_TOKEN_LIST", "")
     client_id = os.environ.get("MILWAUKEETOOL_CLIENT_ID", "")
     token_show = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else "***"
 
-    print(f"\n📌 账号 [{index}/{total}]: {account_name}")
-    print(f"      ├─ Token: {token_show}")
-    print(f"      └─ ClientID: {client_id}")
+    print(f"\n📌 处理账号 [{index}/{total}]: {account_name}")
+    print(f"      ├─ 方法: {GLOBAL_METHOD}")
+    print(f"      ├─ ID: {client_id}")
+    print(f"      └─ Token: {token_show}")
 
     if not token or not client_id:
-        msg = "缺少环境变量"
+        msg = "缺少 token 或 client_id 环境变量"
+        print(f"      ❌ 结果: {msg}")
         failed_list.append((account_name, msg))
         return False
 
-    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now()
+    timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     payload = {
         "token": token,
@@ -135,55 +180,98 @@ def process_account(account_name, index, total, failed_list):
         "method": GLOBAL_METHOD
     }
 
-    payload["sign"] = generate_sign(payload)
+    if GLOBAL_METHOD == "add.signon.item":
+        payload["year"] = str(now.year)
+        payload["month"] = str(now.month)
+        payload["day"] = str(now.day)
+        payload["stype"] = GLOBAL_STYPE
+
+    sign_val = generate_sign(payload)
+    payload["sign"] = sign_val
 
     try:
-        time.sleep(random.uniform(1,2))
+        delay = random.uniform(1.0, 2.5)
+        print(f"      ⏳ 等待 {delay:.1f}s...")
+        time.sleep(delay)
+
         response = requests.post(URL, headers=HEADERS, json=payload, timeout=10)
         resp_json = response.json()
-        code = resp_json.get("code", 0)
-        msg = resp_json.get("msg", "") or str(resp_json)
 
-        is_success = code == 200 or "已签到" in msg or "success" in msg.lower()
+        code = resp_json.get("code")
+        msg = resp_json.get("msg", "") or resp_json.get("message", "") or str(resp_json)
+
+        is_success = False
+        if code == 200 or resp_json.get("status") == 200:
+            is_success = True
+        elif "success" in str(resp_json).lower():
+            is_success = True
+        elif GLOBAL_METHOD == "add.signon.item" and ("已签到" in msg or "成功" in msg or "重复" in msg):
+            is_success = True
 
         if is_success:
-            print(f"      ✅ 签到成功 | {msg}")
-            # 自动查积分
-            time.sleep(1)
-            payload_info = payload.copy()
-            payload_info["method"] = "get.user.item"
-            payload_info["sign"] = generate_sign(payload_info)
-            r = requests.post(URL, json=payload_info, headers=HEADERS, timeout=10)
-            print(format_sign_status(r.json()))
+            print(f"      ✅ 结果: 成功 | {msg}")
+            if SHOW_RAW_RESPONSE:
+                print(f"      └─ 返回: {json.dumps(resp_json, ensure_ascii=False)}")
+
+            print("\n📢 開始檢查簽到天數")
+            delay = random.uniform(1.0, 2.5)
+            print(f"      ⏳ 等待 {delay:.1f}s...")
+            time.sleep(delay)
+            payload_check = {
+                "token": token,
+                "client_id": client_id,
+                "appkey": APPKEY,
+                "format": FORMAT,
+                "timestamp": timestamp_str,
+                "platform": PLATFORM,
+                "method": "get.signon.list"
+            }
+            sign_val_check = generate_sign(payload_check)
+            payload_check["sign"] = sign_val_check
+            response_check = requests.post(URL, headers=HEADERS, json=payload_check, timeout=40)
+            resp_json_check = response_check.json()
+            print(f"{format_sign_status(resp_json_check)}")
+            
             return True
         else:
-            print(f"      ❌ 失败 | {msg}")
-            failed_list.append((account_name, msg[:50]))
+            print(f"      ⚠️ 结果: 失败 (Code:{code}) | {msg}")
+            print(f"      └─ 完整返回:\n{json.dumps(resp_json, ensure_ascii=False, indent=4)}")
+            short_msg = msg if len(msg) < 50 else msg[:47] + "..."
+            failed_list.append((account_name, f"{short_msg} (Code:{code})"))
             return False
 
     except Exception as e:
-        print(f"      ❌ 异常：{str(e)}")
-        failed_list.append((account_name, str(e)))
+        err_msg = str(e)
+        print(f"      ❌ 结果: 网络/系统错误 - {err_msg}")
+        failed_list.append((account_name, f"网络错误: {err_msg}"))
         return False
 
 def main():
     print("=" * 60)
-    print(f"🚀 美沃奇自动签到")
-    print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🚀 批量签到启动 | 模式: {GLOBAL_METHOD}")
+    print(f"📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
-    success = 0
-    failed = []
-    
-    # 修复语法错误，去掉 :=
-    if process_account("默认账号", 1, 1, failed):
-        success = 1
+    success_count = 0
+    failed_list = []
+    total_count = 1
+    account_name = "默认账号"
 
-    print("\n" + "="*60)
-    print(f"🏁 完成：成功 {success} 个，失败 {len(failed)} 个")
-    print("="*60)
+    if process_account(account_name, 1, total_count, failed_list):
+        success_count = 1
 
-    send_wechat_notification(failed, 1, success)
+    print("\n" + "=" * 60)
+    print(f"🏁 任务结束")
+    print(f"   ✅ 成功: {success_count}")
+    print(f"   ❌ 失败: {len(failed_list)}")
+    print("=" * 60)
+
+    send_wechat_notification(failed_list, total_count, success_count)
+
+    if len(failed_list) > 0:
+        print("\n❌ 存在失败账号，已发送通知。")
+    else:
+        print("\n🎉 全部成功！")
 
 if __name__ == "__main__":
     main()
