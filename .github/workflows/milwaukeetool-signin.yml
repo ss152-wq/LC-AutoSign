@@ -2,7 +2,7 @@ name: milwaukeetool Auto Sign
 
 on:
   schedule:
-    - cron: '10 23 * * *'  # 北京时间每天早上7点10分执行（UTC时间23:10）
+    - cron: '10 23 * * *'  # 北京时间每天早上7点10分
   workflow_dispatch:
 
 jobs:
@@ -11,6 +11,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install requests
+      run: pip install requests
 
     - name: Run Sign Script
       env:
