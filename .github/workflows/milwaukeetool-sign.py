@@ -174,7 +174,10 @@ def main():
 
     success = 0
     failed = []
-    process_account("默认账号", 1, 1, failed) and success := 1
+    
+    # 修复语法错误，去掉 :=
+    if process_account("默认账号", 1, 1, failed):
+        success = 1
 
     print("\n" + "="*60)
     print(f"🏁 完成：成功 {success} 个，失败 {len(failed)} 个")
