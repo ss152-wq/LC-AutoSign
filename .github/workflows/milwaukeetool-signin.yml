@@ -3,9 +3,7 @@ name: milwaukeetool Auto Sign
 on:
   schedule:
     - cron: '10 1 * * *'  # 北京时间 09:10
-  workflow_dispatch:      # 保留手动运行
-  push:
-    branches: [ main ]     # 有提交就跑一次，防止休眠
+  workflow_dispatch:      # 手动运行
 
 jobs:
   sign:
