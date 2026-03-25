@@ -2,25 +2,31 @@ name: milwaukeetool Auto Sign
 
 on:
   schedule:
-    - cron: '10 1 * * *'  # UTC 1:10 = 北京时间 9:10
-  workflow_dispatch:
+    - cron: '10 1 * * *'  # 北京时间 09:10
+  workflow_dispatch:      # 保留手动运行
+  push:
+    branches: [ main ]     # 有提交就跑一次，防止休眠
 
 jobs:
   sign:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Install requests
+    - name: Install dependencies
       run: pip install requests
 
-    - name: Run Sign Script
+    - name: Run sign script
       env:
         MILWAUKEETOOL_CLIENT_ID: ${{ secrets.MILWAUKEETOOL_CLIENT_ID }}
         MILWAUKEETOOL_TOKEN_LIST: ${{ secrets.MILWAUKEETOOL_TOKEN_LIST }}
