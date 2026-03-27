@@ -3,7 +3,7 @@ name: JLC Auto Sign
 
 on:
   schedule:
-    - cron: '3 23 * * *'  # 每 6 小时执行一次，UTC 时间
+    - cron: '4 23 * * *'  # 每 6 小时执行一次，UTC 时间
 
   workflow_dispatch:
 
